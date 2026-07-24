@@ -1,0 +1,15 @@
+# .claudeignore
+# This file should contain the same ignored files as .gitignore.
+# Keep this ignore file in sync with .gitignore.
+
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+.DS_Store
+coverage/
+.claude/.session-edits.log
