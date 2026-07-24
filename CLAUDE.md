@@ -27,6 +27,7 @@ These files focus on system-wide patterns and end-to-end flows rather than indiv
 | `PROJECT_STRUCTURE.md` | Project structure for this framework |
 | `README.md` | General project overview |
 | `readme/ARCHITECTURE.md` | High-level system architecture and data flow |
+| `readme/DEPLOYMENT.md` | AWS Lambda deploy via Serverless Framework, husky/CI wiring |
 
 ### Feature flow docs (`readme/flows/`)
 

@@ -1,0 +1,88 @@
+service: booking-api
+
+frameworkVersion: '4'
+
+package:
+  excludeDevDependencies: true
+  patterns:
+    # repo cruft — never needed in the Lambda bundle
+    - '!.git/**'
+    - '!.github/**'
+    - '!.husky/**'
+    - '!.claude/**'
+    - '!readme/**'
+    - '!stitch_cinema_booking_platform/**'
+    - '!.env*'
+    - '!**/*.md'
+    - '!src/**'
+    - '!test/**'
+    # migrations run from CI via `npm run migration:run`, not from the Lambda bundle
+    - '!dist/database/migrations/**'
+    # strip sourcemaps + TS declarations from node_modules (runtime only needs .js)
+    - '!node_modules/**/*.map'
+    - '!node_modules/**/*.d.ts'
+
+provider:
+  name: aws
+  runtime: nodejs24.x
+  region: ${env:AWS_REGION, 'ap-south-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 29
+  logRetentionInDays: 7
+  httpApi:
+    name: ${self:service}-${sls:stage}
+    cors:
+      allowedOrigins:
+        - ${env:CORS_ORIGIN, 'http://localhost:3001'}
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowedHeaders:
+        - content-type
+        - authorization
+      allowCredentials: true
+    payload: '2.0'
+  environment:
+    NODE_ENV: ${env:NODE_ENV, 'production'}
+    PORT: ${env:PORT, '3000'}
+
+    # Database — Supabase Postgres (pooler URL; direct host is IPv6-only)
+    DATABASE_URL: ${env:DATABASE_URL}
+
+    # Auth
+    JWT_SECRET: ${env:JWT_SECRET}
+    JWT_ACCESS_EXPIRES_IN: ${env:JWT_ACCESS_EXPIRES_IN, '15m'}
+    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET}
+    JWT_REFRESH_EXPIRES_IN: ${env:JWT_REFRESH_EXPIRES_IN, '7d'}
+    AUTH_METHODS: ${env:AUTH_METHODS, 'email_password'}
+
+    # Seat lock TTL (minutes) — see readme/flows/booking.md
+    SEAT_LOCK_TTL_MINUTES: ${env:SEAT_LOCK_TTL_MINUTES, '10'}
+
+    # Razorpay
+    RAZORPAY_KEY_ID: ${env:RAZORPAY_KEY_ID}
+    RAZORPAY_KEY_SECRET: ${env:RAZORPAY_KEY_SECRET}
+    RAZORPAY_WEBHOOK_SECRET: ${env:RAZORPAY_WEBHOOK_SECRET}
+
+    # CORS / frontend
+    CORS_ORIGIN: ${env:CORS_ORIGIN, 'http://localhost:3001'}
+
+functions:
+  api:
+    name: ${self:service}-${sls:stage}
+    handler: dist/lambda.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: '*'
+  expireSeatLocks:
+    name: ${self:service}-${sls:stage}-expire-seat-locks
+    handler: dist/lambda.expireSeatLocksHandler
+    description: Releases expired seat locks and flips stale pending bookings to expired — see src/lambda.ts.
+    timeout: 30
+    events:
+      - schedule: rate(1 minute)

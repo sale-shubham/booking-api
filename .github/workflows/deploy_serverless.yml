@@ -1,0 +1,78 @@
+name: Deploy to AWS Lambda (Serverless Framework)
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Run only if it's a push to main or dev
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build (nest build → dist/)
+        run: npm run build
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Set environment variables
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "STAGE=prod" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID_PROD }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}" >> $GITHUB_ENV
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" >> $GITHUB_ENV
+            echo "CORS_ORIGIN=${{ vars.CORS_ORIGIN_PROD }}" >> $GITHUB_ENV
+            echo "RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID_PROD }}" >> $GITHUB_ENV
+            echo "RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET_PROD }}" >> $GITHUB_ENV
+            echo "RAZORPAY_WEBHOOK_SECRET=${{ secrets.RAZORPAY_WEBHOOK_SECRET_PROD }}" >> $GITHUB_ENV
+          else
+            echo "STAGE=dev" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+            echo "CORS_ORIGIN=${{ vars.CORS_ORIGIN }}" >> $GITHUB_ENV
+            echo "RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}" >> $GITHUB_ENV
+            echo "RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET }}" >> $GITHUB_ENV
+            echo "RAZORPAY_WEBHOOK_SECRET=${{ secrets.RAZORPAY_WEBHOOK_SECRET }}" >> $GITHUB_ENV
+          fi
+          echo "NODE_ENV=production" >> $GITHUB_ENV
+          echo "AWS_REGION=${{ vars.AWS_REGION }}" >> $GITHUB_ENV
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> $GITHUB_ENV
+          echo "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" >> $GITHUB_ENV
+          echo "AUTH_METHODS=${{ vars.AUTH_METHODS }}" >> $GITHUB_ENV
+          echo "SEAT_LOCK_TTL_MINUTES=${{ vars.SEAT_LOCK_TTL_MINUTES }}" >> $GITHUB_ENV
+
+      - name: Setup Serverless Access Key
+        run: echo "SERVERLESS_ACCESS_KEY=${{ secrets.SERVERLESS_ACCESS_KEY }}" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run Database Migrations
+        run: npm run migration:run
+
+      - name: Deploy with Serverless
+        run: sls deploy --stage ${{ env.STAGE }}

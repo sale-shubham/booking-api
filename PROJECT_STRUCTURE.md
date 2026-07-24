@@ -21,6 +21,7 @@ booking-api/
 │       └── OFFICIAL_SKILLS.md         # on-demand official-skill references
 ├── readme/                            # Central documentation hub
 │   ├── ARCHITECTURE.md
+│   ├── DEPLOYMENT.md                  # Lambda/Serverless Framework, husky/CI
 │   ├── flows/
 │   │   ├── auth.md
 │   │   ├── booking.md
@@ -28,6 +29,12 @@ booking-api/
 │   │   └── catalog.md
 │   └── methods/
 │       └── typeorm.md
+├── .github/
+│   └── workflows/
+│       ├── dev_build.yml              # PR-into-dev: typecheck + build
+│       └── deploy_serverless.yml      # push to dev/main: sls deploy
+├── .husky/
+│   └── pre-commit                     # npm run typecheck
 ├── src/
 │   ├── modules/
 │   │   ├── auth/                      # entities/user.entity.ts, strategies/jwt.strategy.ts, dto/
@@ -50,8 +57,11 @@ booking-api/
 │   │   ├── data-source.ts             # CLI data source (migrations)
 │   │   └── migrations/
 │   ├── app.module.ts
-│   └── main.ts
+│   ├── bootstrap.ts                   # configureApp() — shared by main.ts and lambda.ts
+│   ├── main.ts                        # local dev entry point (app.listen)
+│   └── lambda.ts                      # AWS Lambda entry points (see readme/DEPLOYMENT.md)
 ├── test/                              # default nest-scaffolded jest e2e config (unit tests skipped this MVP phase)
+├── serverless.yml                     # AWS Lambda deploy config (Serverless Framework v4)
 ├── .env.example
 ├── .gitignore
 ├── .claudeignore                      # Same as .gitignore (kept in sync)
@@ -73,6 +83,8 @@ booking-api/
 | Scheduling | `@nestjs/schedule` (seat-lock expiry cron) |
 | QR codes | `qrcode` |
 | API docs | `@nestjs/swagger` |
+| Lambda adapter | `@codegenie/serverless-express` (see `readme/DEPLOYMENT.md`) |
+| Git hooks | `husky` (`.husky/pre-commit` runs `npm run typecheck`) |
 | Testing | `jest` + `@nestjs/testing` (scaffolded; no new tests authored this MVP phase per project instruction) |
 
 ## Framework Versions
